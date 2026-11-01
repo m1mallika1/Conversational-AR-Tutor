@@ -39,6 +39,19 @@ namespace ArduinoAR.Tests
         }
 
         [Test]
+        public void DemoScene_HasDiagnosticsOffByDefault_ButStillWired()
+        {
+            string scene = System.IO.File.ReadAllText(System.IO.Path.Combine(Application.dataPath, "Scenes/SampleScene.unity"));
+            // ARDiagnosticsOverlay component (script guid in its .meta): disabled, with the Diag button's reference kept.
+            var overlay = System.Text.RegularExpressions.Regex.Match(scene,
+                @"--- !u!114 &(\d+)\nMonoBehaviour:(?:\n  [^\n]*){0,6}?\n  m_Enabled: (\d)\n  m_EditorHideFlags: 0\n  m_Script: \{fileID: 11500000, guid: b6285dcd44ddf13439c520378c602c2f");
+            Assert.IsTrue(overlay.Success, "overlay component not found in the scene");
+            Assert.AreEqual("0", overlay.Groups[2].Value, "the on-screen AR diagnostics must start disabled");
+            StringAssert.Contains($"m_Diagnostics: {{fileID: {overlay.Groups[1].Value}}}", scene, "the Diag button must still be able to enable it");
+            StringAssert.DoesNotContain("m_DiagnosticMode: 1", scene, "alignment diagnostics must start off");
+        }
+
+        [Test]
         public void SpduinoPins_LieInsideTheBoard()
         {
             var p = SpduinoProfile.Profile;

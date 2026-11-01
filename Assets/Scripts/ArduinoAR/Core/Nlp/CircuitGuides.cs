@@ -118,6 +118,9 @@ namespace ArduinoAR
             }
             else
             {
+                // "Hook an LED up to the GND pin": GND can't drive an LED, so correct that and give the safe wiring.
+                if (intent.CircuitId == Led && e.PinIds.Count == 0 && s_GroundTarget.IsMatch(normalized) && !s_CathodeWords.IsMatch(normalized))
+                    sb.Append("GND is not an I/O pin, so it can't drive an LED; only the LED's cathode goes to GND. Use this wiring instead:\n");
                 switch (plan.CircuitId)
                 {
                     case Led: WriteLed(sb, plan); break;
@@ -133,6 +136,9 @@ namespace ArduinoAR
         }
 
         static readonly Regex s_NoResistor = new(@"\bwithout (?:a |any |the )?resistor\b|\bno resistor\b|\bdirectly\b");
+        static readonly Regex s_GroundTarget = new(@"\b(?:gnd|ground) pins?\b|\bto (?:the )?(?:gnd|ground)\b");
+        // "Connect the LED's short leg to GND" is correct wiring, not a mistake to correct.
+        static readonly Regex s_CathodeWords = new(@"\b(?:cathode|short(?:er)? leg|negative leg|flat side)\b");
 
         static string Title(string circuit) => circuit switch
         {
@@ -219,7 +225,7 @@ namespace ArduinoAR
             {
                 F(@"\b(?:where|which pin)\b.*\bresistor\b|\bresistor\b.*\b(?:go|goes|connect|connects)\b",
                   p => $"The resistor goes between {Pin(p)} and the LED's anode (longer leg). It can also sit between the cathode and GND; either way it limits the current.", MainPin),
-                F(@"\bwhy\b.*\bresistor\b|\bresistor\b.*\b(?:for|needed|necessary|purpose)\b|\bneed (?:a |the )?resistor\b",
+                F(@"\bwhy\b.*\bresistor\b|\bresistor\b.*\b(?:for|do|needed|necessary|purpose)\b|\bneed (?:a |the )?resistor\b",
                   p => "The resistor limits the current through the LED. Without it the LED would draw as much current as the pin can push, which can damage both the LED and the pin. Its value depends on the supply voltage, the LED's forward voltage and the current you want.", None),
                 F(@"\b(?:revers\w*|backwards?|wrong way|other way round|upside down|flip|flipped|swap|swapped)\b",
                   p => "It won't light. An LED only conducts in one direction, from the anode (longer leg) to the cathode (shorter leg), so turn it round so the longer leg faces the resistor.", None),

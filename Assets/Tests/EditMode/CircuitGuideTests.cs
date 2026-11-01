@@ -79,6 +79,56 @@ namespace ArduinoAR.Tests
             Assert.AreEqual(0, r.HighlightPins.Count);
         }
 
+        [TestCase("Hook an LED up to the GND pin")]
+        [TestCase("Connect an LED to ground")]
+        [TestCase("Wire the LED to GND")]
+        public void Led_ToGround_IsCorrected_WithSafeWiring(string q)
+        {
+            foreach (var board in new[] { Spduino, Uno })
+            {
+                var r = Ask(q, board);
+                Assert.AreEqual("circuit.led", r.IntentId, q);
+                StringAssert.StartsWith("GND is not an I/O pin", r.Answer, q);
+                StringAssert.Contains("D9 to one end of the resistor", r.Answer);
+                StringAssert.Contains("cathode (shorter leg, flat side) to GND", r.Answer);
+                Assert.AreEqual(Sorted("D9", "GND_TOP", "GND1", "GND2"), Ids(r));
+                Assert.AreEqual(PinRoles.Signal, r.PinRoles["D9"], "GND must not be the signal pin");
+                CollectionAssert.DoesNotContain(r.ResolvedPinIds.ToList(), "GND1");
+                NoRatings(r);
+
+                var spoken = SpokenAnswer.From(r, "the board");
+                StringAssert.StartsWith("GND is not an I/O pin", spoken);
+                StringAssert.Contains("not universally suitable", spoken, "the resistor caution must survive the speech limit");
+            }
+        }
+
+        [TestCase("Connect the LED's short leg to GND")]
+        [TestCase("How do I connect an LED?")]
+        public void Led_CorrectWiringQuestions_AreNotCorrected(string q)
+        {
+            StringAssert.DoesNotContain("GND is not an I/O pin", Ask(q, Spduino).Answer, q);
+        }
+
+        [TestCase("Connect a button to GND")]
+        [TestCase("Connect a potentiometer to ground")]
+        public void OtherCircuits_MayConnectToGround(string q)
+        {
+            StringAssert.DoesNotContain("not an I/O pin", Ask(q, Spduino).Answer, q);
+        }
+
+        [Test]
+        public void WhatDoesTheResistorDo_IsALedFollowUp()
+        {
+            var ctx = new DialogueContext();
+            Ask("How do I connect an LED?", Uno, ctx);
+            var r = Ask("What does the resistor do?", Uno, ctx);
+            Assert.AreEqual("circuit.led.followup", r.IntentId);
+            StringAssert.Contains("limits the current", r.Answer);
+            Assert.AreEqual(0, r.HighlightPins.Count);
+            NoRatings(r);
+            Assert.AreEqual("unknown", Ask("What does the resistor do?", Uno).IntentId, "no circuit is active or named");
+        }
+
         [Test]
         public void Led_WithoutResistor_SaysNo()
         {
