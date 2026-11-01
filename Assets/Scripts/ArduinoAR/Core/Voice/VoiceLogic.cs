@@ -154,13 +154,32 @@ namespace ArduinoAR
         }
 
         /// <summary>
-        /// True when the existing rule-based classifier maps the text to a known intent (any kind except Unknown).
+        /// True when the existing rule-based classifier maps the text to a known intent (any kind except Unknown),
+        /// or when it is worded as a follow-up about a circuit ("Where does the wiper go?").
         /// Board-independent, so it can run before the question is answered.
         /// </summary>
         public static bool ClassifierUnderstands(string text)
         {
             string norm = TextAnalysis.Normalize(text);
-            return IntentClassifier.Classify(norm, TextAnalysis.Extract(norm, null)).Kind != QueryKind.Unknown;
+            var entities = TextAnalysis.Extract(norm, null);
+            return IntentClassifier.Classify(norm, entities).Kind != QueryKind.Unknown || IsCircuitFollowUp(norm, entities);
+        }
+
+        static readonly string[] s_Circuits = { CircuitGuides.Led, CircuitGuides.Button, CircuitGuides.Potentiometer, CircuitGuides.Ldr };
+
+        /// <summary>
+        /// Asks the follow-up matcher itself, trying each circuit as the active one, because selection has no access
+        /// to the conversation. This only picks a transcript; answering still applies the real context.
+        /// </summary>
+        static bool IsCircuitFollowUp(string normalized, ExtractedEntities entities)
+        {
+            var board = ArduinoUnoProfile.Profile;
+            foreach (var circuit in s_Circuits)
+            {
+                var context = new DialogueContext { BoardId = board.Id, ActiveCircuit = circuit };
+                if (CircuitGuides.TryFollowUp(new AssistantResponse(), new ClassifiedIntent(), entities, board, context, normalized)) return true;
+            }
+            return false;
         }
     }
 

@@ -262,6 +262,85 @@ namespace ArduinoAR.Tests
             Assert.AreEqual("unknown", Ask("Why do I need a resistor?", Spduino).IntentId, "no circuit named and none active");
         }
 
+        // ---------- Voice: choosing a circuit follow-up among recognizer alternatives ----------
+
+        [Test]
+        public void Voice_PicksWiperOverViper_RealPhoneTranscript()
+        {
+            var c = TranscriptSelector.Select(new[] { "where does the viper go", "where does the wiper go" }, TranscriptSelector.ClassifierUnderstands);
+            Assert.AreEqual(1, c.Index);
+            Assert.AreEqual("where does the wiper go", c.Text);
+            Assert.IsTrue(c.Understood);
+
+            var ctx = new DialogueContext();
+            Ask("How do I connect a potentiometer?", Uno, ctx);
+            Assert.AreEqual("A0", Ids(Ask(c.Text, Uno, ctx)));
+        }
+
+        [TestCase("what does the resistor do")]
+        [TestCase("why do i need a resistor")]
+        [TestCase("where do the outer legs go")]
+        [TestCase("which pin does that connect to")]
+        public void Voice_CircuitFollowUpWordings_CountAsUnderstood(string text)
+        {
+            var c = TranscriptSelector.Select(new[] { "good morning", text }, TranscriptSelector.ClassifierUnderstands);
+            Assert.AreEqual(1, c.Index, text);
+            Assert.IsTrue(c.Understood, text);
+        }
+
+        [Test]
+        public void Voice_FirstUnderstoodAlternative_StillWins_AndUnrelatedTextIsNotUnderstood()
+        {
+            var first = TranscriptSelector.Select(new[] { "which pins support PWM", "where does the wiper go" }, TranscriptSelector.ClassifierUnderstands);
+            Assert.AreEqual(0, first.Index);
+
+            var none = TranscriptSelector.Select(new[] { "where does the viper go", "good morning" }, TranscriptSelector.ClassifierUnderstands);
+            Assert.AreEqual(0, none.Index, "falls back to the first alternative");
+            Assert.IsFalse(none.Understood);
+            Assert.IsFalse(TranscriptSelector.ClassifierUnderstands("hello there"));
+        }
+
+        [Test]
+        public void Voice_SelectionCheck_DoesNotChangeTheConversation()
+        {
+            var ctx = new DialogueContext();
+            Ask("How do I connect an LED?", Uno, ctx);
+            TranscriptSelector.ClassifierUnderstands("where does the wiper go");
+            Assert.AreEqual(CircuitGuides.Led, ctx.ActiveCircuit);
+            Assert.AreEqual("unknown", Ask("Why do I need a resistor?", Uno).IntentId, "answering still needs a real circuit context");
+        }
+
+        // ---------- D13 wording ----------
+
+        [Test]
+        public void D13_Spduino_ConciseAnswer_KeepsItsCaveats()
+        {
+            const string expected = "D13 on the SPDUINO is a digital I/O pin; its number is printed on the board. On ATmega328 boards it is usually also the SPI clock (SCK) and the on-board LED pin, but both are UNVERIFIED on this board.";
+            var r = Ask("What is the function of D13?", Spduino);
+            Assert.AreEqual("pin.lookup", r.IntentId);
+            Assert.AreEqual("D13", Ids(r));
+            Assert.AreEqual(expected, r.Answer);
+            Assert.AreEqual(expected, SpokenAnswer.From(r, "the SPDUINO board"));
+
+            StringAssert.Contains("Unverified on", r.Uncertainty);
+            StringAssert.Contains("UNVERIFIED (inferred)", r.ToDisplayText(10), "the evidence lines keep their status");
+            var d13 = Spduino.Pins.First(p => p.Id == "D13");
+            Assert.IsTrue(d13.IsVerified(PinCapability.Digital));
+            Assert.IsFalse(d13.IsVerified(PinCapability.SpiSck));
+            Assert.IsFalse(d13.IsVerified(PinCapability.BuiltinLed));
+        }
+
+        [Test]
+        public void D13_OtherPinsAndBoards_KeepTheStandardWording()
+        {
+            StringAssert.StartsWith("D13 (\"13\") on Arduino Uno Rev3:", Ask("What is the function of D13?", Uno).Answer);
+            var d12 = Ask("What is the function of D12?", Spduino);
+            StringAssert.StartsWith("D12 (\"12\") on SPDUINO", d12.Answer);
+            StringAssert.Contains("Functions:", d12.Answer);
+            StringAssert.StartsWith("No: D13", Ask("Does pin 13 support PWM?", Spduino).Answer);
+            StringAssert.StartsWith("Probably: D13", Ask("Does pin 13 support SPI?", Spduino).Answer);
+        }
+
         [Test]
         public void ActiveCircuit_DoesNotCaptureOrdinaryQuestions()
         {

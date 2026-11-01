@@ -311,6 +311,11 @@ namespace ArduinoAR
                 case QueryKind.PinLookup:
                     foreach (var pin in r.Pins)
                     {
+                        if (pin.LookupAnswer != null)
+                        {
+                            sb.Append(pin.LookupAnswer).Append('\n');
+                            continue;
+                        }
                         sb.Append($"{pin.Id} (\"{pin.Label}\") on {boardName}: {pin.Description}\n");
                         var capFacts = r.Facts.Where(f => f.Kind == FactKind.PinCapability && f.PinId == pin.Id).ToList();
                         if (capFacts.Count > 0)

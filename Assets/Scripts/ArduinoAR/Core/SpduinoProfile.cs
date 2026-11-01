@@ -163,7 +163,9 @@ namespace ArduinoAR
                 case 13: caps.Add(PinCapability.SpiSck); caps.Add(PinCapability.BuiltinLed); inferred.Add(PinCapability.SpiSck); inferred.Add(PinCapability.BuiltinLed); desc += " SPI SCK on ATmega328P; on-board LED not confirmed on this board."; break;
             }
             string label = d == 0 ? "RX0" : d == 1 ? "TX1" : caps.Contains(PinCapability.Pwm) ? $"~{d}" : d.ToString();
-            return Pin($"D{d}", label, PinHeader.DigitalTop, pos, desc, inferred.Count > 0 ? k_Inferred : k_Silkscreen, caps.ToArray(), inferred.ToArray());
+            var pin = Pin($"D{d}", label, PinHeader.DigitalTop, pos, desc, inferred.Count > 0 ? k_Inferred : k_Silkscreen, caps.ToArray(), inferred.ToArray());
+            if (d == 13) pin.LookupAnswer = "D13 on the SPDUINO is a digital I/O pin; its number is printed on the board. On ATmega328 boards it is usually also the SPI clock (SCK) and the on-board LED pin, but both are UNVERIFIED on this board.";
+            return pin;
         }
     }
 }

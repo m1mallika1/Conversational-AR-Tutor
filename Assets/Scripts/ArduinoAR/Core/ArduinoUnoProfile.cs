@@ -42,6 +42,8 @@ namespace ArduinoAR
         public string VerificationNote;
         /// <summary>Capabilities assumed from the MCU/reference design but not confirmed on this board.</summary>
         public HashSet<string> InferredCapabilities = new();
+        /// <summary>Optional complete wording for "what does this pin do?"; null uses the standard description and function list.</summary>
+        public string LookupAnswer;
 
         public bool Has(string capability) => Capabilities.Contains(capability);
         public bool IsVerified(string capability) => Capabilities.Contains(capability) && !InferredCapabilities.Contains(capability);
