@@ -70,3 +70,9 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Android native build intermediates (Gradle/CMake)
+.utmp/
+
+# Device test logs (large, kept locally; copies are in the backup folders)
+/device_test_*.txt
